@@ -57,7 +57,7 @@ app.post('/users/:cpf/notes', verifyUserExist, (req, res) => {
 app.get('/users/:cpf/notes', verifyUserExist, (req, res) => {
   const newCpf = req.params.cpf;
   const user = userList.filter((obj) => obj.cpf === newCpf);
-  res.json(user[0].getNotes());
+  res.json(user[0].notes);
 });
 
 app.patch(

@@ -12,10 +12,6 @@ export default class User {
     this.notes.push(note);
   }
 
-  getNotes() {
-    return this.notes;
-  }
-
   updateUse(name) {
     this.name = name;
   }

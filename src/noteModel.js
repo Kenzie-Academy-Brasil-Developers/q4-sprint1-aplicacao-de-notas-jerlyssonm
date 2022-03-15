@@ -11,6 +11,6 @@ export default class Notes {
   updateNote(title, content) {
     this.title = title;
     this.content = content;
-    this.updated_at =new Date();
+    this.updated_at = new Date();
   }
 }

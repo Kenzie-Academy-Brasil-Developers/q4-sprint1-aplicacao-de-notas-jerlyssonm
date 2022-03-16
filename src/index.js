@@ -5,58 +5,61 @@ const app = express();
 const userList = []
 app.use(express.json());
 
+//Middlewares
+
 function verifyUserExist(req, res, next) {
-  const data = req.body;
   const { cpf } = req.params;
   const user = userList.find((obj) => obj.cpf === cpf);
   if (!user) {
-    res.status(404).json({ error: 'user is not registered' });
-    return;
+    return res.status(404).json({ error: 'user is not registered' });
   }
-  if (data.cpf && user.cpf !== data.cpf) {
-    res.status(404).json({ message: 'CPF cannot be changed' });
-    return;
+  if (req.body.cpf && user.cpf !== req.body.cpf) {
+    return res.status(404).json({ message: 'CPF cannot be changed' });
   }
+  req.user = user;
   return next();
 }
 
 function alreadyExistUser(req, res, next) {
-  const { cpf } = req.body;
+  const { name, cpf } = req.body;
   const user = userList.find((obj) => obj.cpf === cpf);
   if (user) {
-    res.status(422).json({ error: 'user already exists' });
-    return;
-  }
-  return next();
-}
-function alreadyExistNote(req, res, next) {
-  const { cpf, id } = req.params;
-  const user = userList.find((obj) => obj.cpf === cpf);
-  const note = user.notes.find((obj) => obj.id === id);
-  if (!note) {
-    res.status(404).json({ error: 'note is not registered' });
-    return;
+    return res.status(422).json({ error: 'user already exists' });
+  }else{
+    const user = new User(name, cpf);
+    req.user = user;
   }
   return next();
 }
 
-app.post('/users', alreadyExistUser, (req, res) => {
-  const { name, cpf } = req.body;
-  const user = new User(name, cpf);
-  userList.push(user);
-  res.status(201).json(user);
-});
+function alreadyExistNote(req, res, next) {
+  const { id } = req.params;
+  const {user} = req
+  const note = user.notes.find((obj) => obj.id === id);
+  if (!note) {
+    return res.status(404).json({ error: 'note is not registered' });
+  }
+  req.note = note;
+  return next();
+}
+
+//Rotas
 
 app.get('/users', (_, res) => {
   res.json(userList);
 });
 
-app.patch('/users/:cpf', verifyUserExist, (req, res) => {
-  const data = req.body;
-  const { cpf } = req.params;
-  const user = userList.find((obj) => obj.cpf === cpf);
+app.post('/users', alreadyExistUser, (req, res) => {
+  const {user} = req
+  userList.push(user);
+  res.status(201).json(user);
+});
 
-  user.updateUse(data.name);
+app.patch('/users/:cpf', verifyUserExist, (req, res) => {
+  const {name} = req.body;
+  const {user} = req;
+
+  user.updateUse(name);
 
   res.json({
     message: 'User is updated',
@@ -65,18 +68,15 @@ app.patch('/users/:cpf', verifyUserExist, (req, res) => {
 });
 
 app.delete('/users/:cpf', verifyUserExist, (req, res) => {
-  const newCpf = req.params.cpf;
-  userList.pop(newCpf);
+  const {cpf} = req.params;
+  userList.pop(cpf);
   res.status(204).json();
 });
 
 app.post('/users/:cpf/notes', verifyUserExist, (req, res) => {
   const { title, content } = req.body;
-  const { cpf } = req.params;
-
-  const user = userList.find((obj) => obj.cpf === cpf);
   const note = new Notes(title, content);
-
+  const {user} = req;
   user.setNotes(note);
   res
     .status(201)
@@ -84,8 +84,7 @@ app.post('/users/:cpf/notes', verifyUserExist, (req, res) => {
 });
 
 app.get('/users/:cpf/notes', verifyUserExist, (req, res) => {
-  const newCpf = req.params.cpf;
-  const user = userList.find((obj) => obj.cpf === newCpf);
+  const {user} = req
   res.json(user.notes);
 });
 
@@ -94,11 +93,9 @@ app.patch(
   verifyUserExist,
   alreadyExistNote,
   (req, res) => {
-    const { cpf, id } = req.params;
     const { title, content } = req.body;
+    const {note} = req;
 
-    const user = userList.find((obj) => obj.cpf === cpf);
-    const note = user.notes.find((obj) => obj.id === id);
     note.updateNote(title, content);
     res.json(note);
   }
@@ -109,13 +106,14 @@ app.delete(
   verifyUserExist,
   alreadyExistNote,
   (req, res) => {
-    const { cpf, id } = req.params;
-    const user = userList.find((obj) => obj.cpf === cpf);
+    const {id} = req.params;
+    const {user} = req;
     user.notes.pop(id);
     res.status(204).json();
   }
 );
 
+// Classes de User e Notes
 class User {
   constructor(name, cpf) {
     this.id = v4();

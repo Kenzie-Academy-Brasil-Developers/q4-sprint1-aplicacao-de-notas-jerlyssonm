@@ -1,31 +1,37 @@
 import express from 'express';
-import {v4} from 'uuid';
+import { v4 } from 'uuid';
 
 const app = express();
-const userList = []
+const userList = [];
 app.use(express.json());
 
 //Middlewares
 
 function verifyUserExist(req, res, next) {
   const { cpf } = req.params;
+
   const user = userList.find((obj) => obj.cpf === cpf);
   if (!user) {
     return res.status(404).json({ error: 'user is not registered' });
-  }
-  if (req.body.cpf && user.cpf !== req.body.cpf) {
-    return res.status(404).json({ message: 'CPF cannot be changed' });
   }
   req.user = user;
   return next();
 }
 
+function verifyCpfExist(req, res, next) {
+  const { cpf } = req.body;
+  const user = userList.find((user) => user.cpf === cpf);
+  if (user && cpf !== req.params.cpf) {
+    return res.status(404).json({ message: 'cpf is already being used' });
+  }
+  return next();
+}
 function alreadyExistUser(req, res, next) {
   const { name, cpf } = req.body;
   const user = userList.find((obj) => obj.cpf === cpf);
   if (user) {
     return res.status(422).json({ error: 'user already exists' });
-  }else{
+  } else {
     const user = new User(name, cpf);
     req.user = user;
   }
@@ -34,7 +40,7 @@ function alreadyExistUser(req, res, next) {
 
 function alreadyExistNote(req, res, next) {
   const { id } = req.params;
-  const {user} = req
+  const { user } = req;
   const note = user.notes.find((obj) => obj.id === id);
   if (!note) {
     return res.status(404).json({ error: 'note is not registered' });
@@ -50,16 +56,16 @@ app.get('/users', (_, res) => {
 });
 
 app.post('/users', alreadyExistUser, (req, res) => {
-  const {user} = req
+  const { user } = req;
   userList.push(user);
   res.status(201).json(user);
 });
 
-app.patch('/users/:cpf', verifyUserExist, (req, res) => {
-  const {name} = req.body;
-  const {user} = req;
+app.patch('/users/:cpf', verifyCpfExist, verifyUserExist, (req, res) => {
+  const { name, cpf } = req.body;
+  const { user } = req;
 
-  user.updateUse(name);
+  user.updateUse(name, cpf);
 
   res.json({
     message: 'User is updated',
@@ -68,7 +74,7 @@ app.patch('/users/:cpf', verifyUserExist, (req, res) => {
 });
 
 app.delete('/users/:cpf', verifyUserExist, (req, res) => {
-  const {cpf} = req.params;
+  const { cpf } = req.params;
   userList.pop(cpf);
   res.status(204).json();
 });
@@ -76,7 +82,7 @@ app.delete('/users/:cpf', verifyUserExist, (req, res) => {
 app.post('/users/:cpf/notes', verifyUserExist, (req, res) => {
   const { title, content } = req.body;
   const note = new Notes(title, content);
-  const {user} = req;
+  const { user } = req;
   user.setNotes(note);
   res
     .status(201)
@@ -84,7 +90,7 @@ app.post('/users/:cpf/notes', verifyUserExist, (req, res) => {
 });
 
 app.get('/users/:cpf/notes', verifyUserExist, (req, res) => {
-  const {user} = req
+  const { user } = req;
   res.json(user.notes);
 });
 
@@ -94,7 +100,7 @@ app.patch(
   alreadyExistNote,
   (req, res) => {
     const { title, content } = req.body;
-    const {note} = req;
+    const { note } = req;
 
     note.updateNote(title, content);
     res.json(note);
@@ -106,8 +112,8 @@ app.delete(
   verifyUserExist,
   alreadyExistNote,
   (req, res) => {
-    const {id} = req.params;
-    const {user} = req;
+    const { id } = req.params;
+    const { user } = req;
     user.notes.pop(id);
     res.status(204).json();
   }
@@ -126,8 +132,9 @@ class User {
     this.notes.push(note);
   }
 
-  updateUse(name) {
+  updateUse(name,cpf) {
     this.name = name;
+    this.cpf = cpf;
   }
 }
 class Notes {
